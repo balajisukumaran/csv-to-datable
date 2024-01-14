@@ -1,0 +1,19 @@
+{
+	"name": "TriggerFile",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "InputBlob",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "input.trg",
+				"container": "generic-himacs-input-file"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,511 @@
+{
+	"name": "GenericHimacsJob-1",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Input File MetaData",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "Sample_csv",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"itemName",
+						"columnCount",
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Queue File Details",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [
+					{
+						"activity": "Get Input File MetaData",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": "HttpTrigger",
+					"method": "POST",
+					"body": {
+						"value": "@activity('Get Input File MetaData').output",
+						"type": "Expression"
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureFunctionLinkService",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "EmployeeDataSet",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Queue File Details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Data",
+					"value": {
+						"value": "@activity('Queue File Details').output.items",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "ForEachEmployee",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "EmployeeDataSet",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('Data')",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Set variable1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Name",
+								"value": {
+									"value": "@item().Name",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable2",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Id",
+								"value": {
+									"value": "@item().Id",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Stored procedure1",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set variable1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set variable2",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set variable4",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Set variable3",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[InsertOneRecord]",
+								"storedProcedureParameters": {
+									"age": {
+										"value": {
+											"value": "@variables('Age')",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"company": {
+										"value": {
+											"value": "@variables('Company')",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Id": {
+										"value": {
+											"value": "@variables('Id')",
+											"type": "Expression"
+										},
+										"type": "Int32"
+									},
+									"name": {
+										"value": {
+											"value": "@variables('Name')",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "OutputSQL",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Set variable3",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Company",
+								"value": {
+									"value": "@item().Company",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Set variable4",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Age",
+								"value": {
+									"value": "@item().Age",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Delete Trigger File On Failure",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "Get Input File MetaData",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Queue File Details",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "TriggerFile",
+						"type": "DatasetReference"
+					},
+					"enableLogging": false,
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					}
+				}
+			},
+			{
+				"name": "Delete Trigger File On Success",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "Delete Input File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "TriggerFile",
+						"type": "DatasetReference"
+					},
+					"enableLogging": false,
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					}
+				}
+			},
+			{
+				"name": "Delete Input File",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "ForEachEmployee",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "Sample_csv",
+						"type": "DatasetReference"
+					},
+					"enableLogging": false,
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings",
+						"recursive": true
+					}
+				}
+			},
+			{
+				"name": "Set Status Passed",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Delete Trigger File On Success",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "Status",
+					"value": {
+						"value": "@bool(1)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Log Passed",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set Status Passed",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertJobHistory]",
+					"storedProcedureParameters": {
+						"message": {
+							"value": {
+								"value": "@concat('Job Passed',utcnow())",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "OutputSQL",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Log Failed",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Delete Trigger File On Failure",
+						"dependencyConditions": [
+							"Skipped",
+							"Failed",
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertJobHistory]",
+					"storedProcedureParameters": {
+						"message": {
+							"value": {
+								"value": "@concat('Job Failed' ,utcnow())",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "OutputSQL",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Generate Output",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "ForEachEmployee",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[uspGetEmployees]",
+						"storedProcedureParameters": {
+							"number": {
+								"type": "Int32",
+								"value": "1"
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "LookUpDataSet",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "Json1",
+						"type": "DatasetReference"
+					}
+				]
+			}
+		],
+		"variables": {
+			"Data": {
+				"type": "Array"
+			},
+			"Age": {
+				"type": "String"
+			},
+			"Name": {
+				"type": "String"
+			},
+			"Company": {
+				"type": "String"
+			},
+			"Id": {
+				"type": "String"
+			},
+			"Status": {
+				"type": "Boolean"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2020-11-05T21:11:25Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
